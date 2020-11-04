@@ -181,7 +181,7 @@ tbl_10_new_psc <-
 ```
 
 ```{r eval = T}
-tbl_10_new_psc
+gt(tbl_10_new_psc)
 ```
 
 #### Build a Network Graph of these New PSCs
@@ -204,15 +204,13 @@ hc_new_psc_node_graph <-
 hc_new_psc_node_graph
 ```
 
-
 ### Part II: FPDS CSV
 
-This section explores `fpds_csv` which provides real time access into the [FPDS]() csv interface.
+This section explores `fpds_csv` which provides real time access into the <a href="https://www.fpds.gov/ezsearch/search.do?indexName=awardfull&templateName=1.5.1&s=FPDS.GOV&q=Google-like+search+to+help+you+find+federal+contracts..." target="_blank">FPDS/a> csv interface.
 
 ```{r eval = F}
 args(fpds_csv)
 ```
-
 
 #### Acquire All Procurements of Pyrotechnics
 
@@ -995,10 +993,6 @@ Next we build the summary
   munge_data()
 ```
 
-```{r}
-tbl_ngrams
-```
-
 Lets look at the top 15
 
 ```{r}
@@ -1589,8 +1583,7 @@ tbl_vendors <-
   filter(id_duns != 123456787)
 ```
 
-
-Lets explore the data interactively again.
+Lets explore the data interactively [this will not work in the rendered markdown]
 
 ```{r eval = F}
 esquisse::esquisser(tbl_vendors)
@@ -1656,7 +1649,7 @@ Lets see if it worked
 tbl_cumulative$data[[7]] %>% plot_gg_cumulative_area(plot_title = "Test")
 ```
 
-Now we can buid the trelliscope using the function we built to plot the cumulative area for each of the companies.  We also want to join in all the features we want to explore!
+Now we can build the trelliscope using the function we built to plot the cumulative area for each of the companies.  We also want to join in all the features we want to explore [this also won't render in the final version of the markdown]
 
 ```{r}
 tbl_trelliscope_data <-
@@ -2090,7 +2083,8 @@ hc_items <-
 ```{r}
 hc_items
 ```
-#### Exploring the whole 2021 Budget
+
+#### Explore the Whole 2021 Budget
 
 Lets see if we can explore the whole budget interactively.
 
@@ -2128,6 +2122,7 @@ tm <-
   tbl_treemap %>%
   treemap(index = treemap_columns,
           vSize = "amount",
+          draw = F,
           type = "index")
 
 tm_nest <- d3_nest(tm$tm[, c(treemap_columns,
@@ -2166,6 +2161,5 @@ rpiv <- rpivotTable::rpivotTable(df_budget,
 ```{r}
 rpiv
 ```
-
 
 #### Questions and Follow Up
