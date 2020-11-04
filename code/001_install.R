@@ -6,6 +6,7 @@ pkgs <-
     "future",
     "furrr",
     "humaniformat",
+    "knitr",
     "janitor",
     "curl",
     "rvest",
@@ -17,6 +18,8 @@ pkgs <-
     "phonics",
     "refinr",
     "vroom",
+    "rpivotTable",
+    "trelliscopejs",
     "formattable",
     "rio",
     "highcharter",
@@ -39,14 +42,6 @@ install.packages(other_package)
 remotes::install_github("kosukeimai/wru")
 remotes::install_github("abresler/entities")
 remotes::install_github("egenn/rtemis")
-install.packages("aws.ec2", repos = c(getOption("repos"), "http://cloudyr.github.io/drat"))
-install.packages("aws.s3")
-
-# install.packages(
-#   "https://abresler.github.io/private_r_packages/awstools_0.1.tar.gz",
-#   repos = NULL,
-#   type = "source"
-# )
 remotes::install_github("hrbrmstr/markdowntemplates")
 
 install.packages(

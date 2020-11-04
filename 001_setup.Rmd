@@ -11,7 +11,23 @@ knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 
 ## Pre-requisities
 
-Please install [R]() and RStudio locally or setup an [Rstudio Cloud]()
+Please install <a href="https://cran.r-project.org/" target="_blank">R</a> and  <a href="https://rstudio.com/products/rstudio/download/" target="_blank">RStudio</a> locally or setup an <a href="https://login.rstudio.cloud/login?redirect=%2Foauth%2Fauthorize%3Fredirect_uri%3Dhttps%253A%252F%252Frstudio.cloud%252Flogin%26client_id%3Drstudio-cloud%26response_type%3Dcode%26show_auth%3D0%26show_login%3D1%26show_setup%3D1&setup=True" target="_blank">RStudio Cloud</a>.
+
+## Clone the Git
+
+### RStudio Cloud
+
+<img src="https://i.imgur.com/VLaM2fh.png"  width="300" height="300">
+
+
+#### Rstudio Locale
+
+<img src="https://i.imgur.com/hrPIybS.png"  width="500" height="500">
+
+<img src="https://i.imgur.com/rnRm1RJ.png"  width="500" height="500">
+
+<img src="https://i.imgur.com/f2yVBUm.png"  width="500" height="500">
+
 
 ```{r install, eval = F}
 source("code/001_install.R")
@@ -19,9 +35,6 @@ source("code/001_install.R")
 
 If that does not work 
 
-```{r}
-source("")
-```
 
 ### Clone the Git
 
@@ -29,11 +42,9 @@ Next you can clone the git like this:
 
 If that does not work you can see the individual files on the links here and save them:
 
-
-
 ### Package Reference: 
 
-You can also explore [govtrackR reference library](http://asbcllc.com/govtrackR/reference/index.html)
+<a href="https://hafen.github.io/trelliscopejs/" target="_blank">govtrackR Reference</a>
 
 ### Tips: 
 
@@ -42,6 +53,24 @@ You can also explore [govtrackR reference library](http://asbcllc.com/govtrackR/
 
 
 
+### Other Packages to Explore
+
+<a href="https://rtemis.lambdamd.org/" target="_blank">rtemis</a>
+
+<a href="https://jkunst.com/highcharter/" target="_blank">Highcharter</a>
+
+<a href="https://github.com/jlmelville/uwot" target="_blank">UWOT</a>
+
+<a href="https://hafen.github.io/trelliscopejs/" target="_blank">TrelliscopeJS</a>
+
+
+### Other R Tools
+
+<a href="https://bigbookofr.netlify.app/" target="_blank">Big Book of R</a>
+
+<a href="https://bookdown.org/yihui/rmarkdown-cookbook/" target="_blank">Rmarkdown Cookbook</a>
+
+<a href="https://bookdown.org/yihui/rmarkdown-cookbook/" target="_blank">Bookdown Archive</a>
 
 
 
