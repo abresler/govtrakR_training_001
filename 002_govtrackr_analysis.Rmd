@@ -2146,7 +2146,6 @@ Lets See how it looks:
 sun
 ```
 
-
 #### Pivot Table
 
 Finally let me show you how we can port this data into an interactive pivottable!
