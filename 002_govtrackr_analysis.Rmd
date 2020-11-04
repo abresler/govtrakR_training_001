@@ -1,0 +1,2171 @@
+---
+title: "govtrackR Analysis"
+author: "SHELDON"
+date: "`r Sys.Date()`"
+og:
+  type: "article"
+  title: "opengraph title"
+  url: "optional opengraph url"
+footer:
+  - content: '<small>Use or disclosure of data contained on this page is subject to the legend on the first page of the volume.<br>PW Communications, Inc.<br>Proprietary Information</small>'
+output: 
+  markdowntemplates::skeleton:
+    toc: TRUE
+    smart: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  eval = T,
+  results = 'asis',
+  fig.retina = 4,
+  warning = F,
+  message = F,
+  fig.width = 12,
+  fig.height = 8
+)
+```
+
+### Load Packages
+
+```{r load_libs}
+library(lubridate)
+library(tidyverse)
+library(tidytext)
+library(govtrackR)
+library(scales)
+library(ggtext)
+library(gganimate)
+library(hrbrthemes)
+library(rtemis)
+library(viridis)
+library(ggrepel)
+library(highcharter)
+library(tidylo)
+library(widyr)
+library(gt)
+library(tidygraph)
+library(ggraph)
+library(igraph)
+library(d3r)
+library(treemap)
+library(sunburstR)
+library(reactable)
+library(skimr)
+library(trelliscopejs)
+library(glue)
+options(highcharter.theme = hc_theme_hcrt(tooltip = list(valueDecimals = 2)))
+```
+
+### Part I: Exploring Product Service Codes
+
+Lets explore PSC's to help us better understand the products and services the government procures.
+
+```{r pull_psc}
+tbl_psc <- dictionary_psc_active(only_active = T, snake_names = T)
+
+```
+
+#### Building Table to Explore PSCs
+
+Lets build an an interactive table that lets us see all the PSCs
+
+```{r}
+psc_tbl <- tbl_psc %>%
+  select(
+    is_active_psc,
+    type_psc,
+    name_solicitation_group,
+    code_product_service,
+    name_product_service,
+    date_start,
+    date_end,
+    details_product_service_includes
+  ) %>%
+  reactable(
+    filterable = T,
+    resizable = T,
+    searchable = T,
+    showPageSizeOptions = T,
+    defaultPageSize = 4,
+    pageSizeOptions = c(5, 10, 20),
+    sortable = T,
+    compact = T
+  )
+```
+
+Here it is
+
+```{r psc_table}
+psc_tbl
+```
+
+#### Explore the Breakdown Between Products and Services
+
+What is the breakdown between these two groups?
+
+```{r psc_bkdown}
+gg_psc_bkd <- 
+  tbl_psc %>%
+  count(type_psc, sort = T, name = "count") %>%
+  mutate(type_psc = fct_reorder(type_psc, count)) %>%
+  ggplot(aes(x = type_psc, y = count, fill = type_psc)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis(discrete = TRUE, name = "") +
+  theme_ipsum() +
+  ylab("Number of Product Service Codes") +
+  xlab("") +
+  ggtitle("Products Versus Services") +
+  coord_flip()
+```
+
+```{r show_psc_bk}
+gg_psc_bkd
+```
+
+#### New PSCs overtime
+
+How often are new PSC's added? 
+
+First, how many new PSC's are there on a given date?
+
+```{r new_psc_dates}
+tbl_new_codes <-
+  tbl_psc %>%
+  group_by(type_psc, date_start) %>%
+  summarise(count_added = n(), .groups = "drop")
+
+```
+
+Lets explore this interactively
+
+```{r hc_new_psc}
+hc_new_psc <-
+  hchart(tbl_new_codes,
+         "line",
+         hcaes(x = date_start, y = count_added, group = type_psc)) %>%
+  hc_title(text = "New Product Service Codes by Date Added") %>%
+  hc_yAxis(title = list(text = "Count of New Codes")) %>%
+  hc_xAxis(title = list(text = "Date Added"))
+```
+
+```{r}
+hc_new_psc
+```
+
+Lets make this look a bit better
+
+```{r}
+hc_new_psc <-
+  hc_new_psc %>%
+  hc_add_theme(hc_theme_hcrt())
+```
+
+```{r}
+hc_new_psc
+```
+
+#### Build A Network Graph of the 10 Newest PSCs 
+
+Lets take a look at the 10 newest PSCs
+
+```{r eval = T}
+tbl_10_new_psc <-
+  tbl_psc %>%
+  filter(!is_parent_psc) %>%
+  arrange(desc(date_start)) %>%
+  group_by(type_psc) %>%
+  slice(1:10) %>%
+  ungroup()
+```
+
+```{r eval = T}
+tbl_10_new_psc
+```
+
+#### Build a Network Graph of these New PSCs
+
+Lets explore the connections of these 20 newest PSCs
+
+```{r}
+hc_new_psc_node_graph <-
+  tbl_10_new_psc %>%
+  select(name_solicitation_group, name_product_service) %>%
+  as_tbl_graph() %>%
+  hchart() %>%
+  hc_title(text = "New Product Service Codes Node Graph") %>%
+  hc_add_theme(hc_theme_darkunica()) %>%
+  hc_xAxis(visible = FALSE) %>%
+  hc_yAxis(visible = FALSE)
+```
+
+```{r}
+hc_new_psc_node_graph
+```
+
+
+### Part II: FPDS CSV
+
+This section explores `fpds_csv` which provides real time access into the [FPDS]() csv interface.
+
+```{r eval = F}
+args(fpds_csv)
+```
+
+
+#### Acquire All Procurements of Pyrotechnics
+
+```{r fpds_pyro}
+tbl_pyro <-
+  fpds_csv(product_or_service_code = "1370", snake_names = T)
+
+```
+
+#### Explore the Data Structure and Values
+
+This is a great practice for exploring data
+
+```{r}
+glimpse(tbl_pyro)
+```
+
+```{r}
+skim(tbl_pyro)
+```
+
+
+#### What is the Total Spend?
+
+First thing to look at is how much we have spent on these products.
+
+```{r pyro_tbl}
+tbl_by_day <- 
+  tbl_pyro %>%
+  group_by(date_obligation) %>%
+  summarise(amount = sum(amount_obligation), .groups = "drop")
+```
+
+Lets take a look at the data
+
+```{r}
+tbl_by_day %>% sample_n(3) %>% munge_data() %>% gt()
+```
+
+#### Dealing with $0 Obligations
+
+```{r eval = T}
+tbl_by_day %>% filter(amount == 0) %>% nrow()
+```
+
+Lets filter them out
+
+```{r eval = T}
+tbl_by_day <- tbl_by_day %>% filter(amount != 0)
+```
+
+#### Explore Outlays by Day
+
+```{r eval = T}
+hc_by_day <-
+  tbl_by_day %>%
+  hchart("spline",
+         hcaes(x = date_obligation, y = amount)) %>%
+  hc_title(text = "Pyrotechnic Spend By Day Spend by Date") %>%
+  hc_yAxis(title = list(text = "Amount Obligated")) %>%
+  hc_xAxis(title = list(text = "Date Added")) %>%
+  hc_add_theme(hc_theme_elementary())
+```
+
+#### What is the Cumulative Spend?
+
+Lets add a cumulative total
+
+```{r}
+tbl_by_day <-
+  tbl_by_day %>%
+  mutate(amount_cumulative = cumsum(amount))
+```
+
+Now lets explore it statically
+
+```{r}
+gg_area_pyro <-
+  tbl_by_day %>%
+  ggplot(aes(date_obligation, amount_cumulative)) +
+  geom_area(fill = "#22908C", alpha = .5) +
+  scale_fill_viridis(discrete = TRUE) +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_x_date() +
+  theme(legend.position = "none") +
+  theme_ipsum() +
+  labs(title = "Cumulative Federal Procurement on Pyrotechnics", x = "Date", y = "Cumulative Procurement Spend")
+```
+
+```{r}
+gg_area_pyro
+```
+
+Lets add some model fits
+
+```{r}
+gg_area_pyro <- 
+  gg_area_pyro +
+  geom_smooth(method = "lm") +
+  geom_smooth(method = "loess", color = "black") 
+```
+
+```{r}
+gg_area_pyro
+```
+
+#### Do these Procurments Exhibit Seasonality?
+
+Often products and services tend to be procured in September at the end of the budget year, does this product exhibit that trend?
+
+Lets build a table that gives us the inputs
+
+```{r}
+govt_months <- 
+  c(
+    "Oct",
+    "Nov",
+    "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep"
+  )
+
+tbl_monthly_pyro <-
+  tbl_pyro %>%
+  mutate(month_obligation = lubridate::month(date_obligation, label = T)) %>%
+  count(year_fiscal_obligation,
+        month_obligation,
+        wt = amount_obligation,
+        name = "amount")
+
+## Set the factor levels to budget months
+
+tbl_monthly_pyro <- 
+  tbl_monthly_pyro %>%
+  mutate(month_obligation = factor(
+    month_obligation,
+    levels = govt_months,
+    ordered = T
+  ))
+
+```
+
+Lets turn this into an interactive heatmap.
+
+
+
+```{r}
+
+fntltp <- JS("function(){
+  return this.point.x + ' ' +  this.series.yAxis.categories[this.point.y] + ': ' +
+  Highcharts.numberFormat(this.point.value, 2);
+}")
+
+
+hc_pyro_hm <-
+  hchart(
+    tbl_monthly_pyro,
+    "heatmap",
+    hcaes(x = year_fiscal_obligation,
+          y = month_obligation,
+          value = amount)
+  ) %>%
+  hc_colorAxis(
+    stops = color_stops(20, colors = scales::viridis_pal(option = "B")(20)),
+    # fuerza a utilzar mejor el espectro de colores para que HJS no amplie el
+    # eje para tener numero "redondos
+    startOnTick = FALSE,
+
+    endOnTick =  FALSE,
+    reversed = T
+  ) %>%
+  hc_yAxis(
+    title = list(text = ""),
+    reversed = TRUE,
+    offset = -20,
+    tickLength = 0,
+    gridLineWidth = 0,
+    minorGridLineWidth = 0,
+    labels = list(style = list(fontSize = "9px"))
+  ) %>%
+  hc_tooltip(formatter = fntltp) %>%
+  hc_title(text = "Spend by Month and Fiscal Year") %>%
+  hc_legend(
+    layout = "horizontal",
+    verticalAlign = "top",
+    align = "left",
+    valueDecimals = 0
+  ) %>%
+  hc_add_theme(hc_theme_darkunica())
+```
+
+```{r}
+hc_pyro_hm
+```
+
+Looks like it fits the usual trend but can we actually quantify it?
+
+Lets do a basic liner model exploring this.
+
+```{r}
+mod <-
+  rtemis::s.LM(x = tbl_monthly_pyro$month_obligation, y = tbl_monthly_pyro$amount, intercept = F)
+```
+
+Now lets explore the variable importance!
+
+```{r}
+var_imp <- mod$varimp
+tbl_coef <- 
+  tibble(month = names(var_imp), amount_coef = var_imp) %>%
+  arrange(desc(amount_coef)) %>%
+  munge_data()
+```
+
+Let's see
+
+```{r}
+gt(tbl_coef)
+```
+
+#### Spend by Department
+
+Lets take a look at spend by department.
+
+```{r}
+tbl_depts <-
+  tbl_pyro %>%
+  count(
+    name_department_award,
+    wt = amount_obligation,
+    name = "amount",
+    sort = T
+  ) %>%
+  mutate(name_department_award = fct_reorder(name_department_award, amount))
+```
+
+```{r}
+tbl_depts %>% munge_data() %>% gt()
+```
+
+Now we can visualize it.
+
+```{r}
+gg_spend <-
+  tbl_depts %>%
+  mutate(amount_millions = amount /1000000) %>% 
+  ggplot(aes(x = name_department_award, y = amount_millions)) +
+  geom_segment(
+    aes(
+      x = name_department_award ,
+      xend = name_department_award,
+      y = 0,
+      yend = amount_millions
+    ),
+    color = "grey"
+  ) +
+  geom_point(size = 3, color = "#69b3a2") +
+  coord_flip() +
+  theme_ipsum() +
+  theme(
+    legend.position = "none",
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    text = element_text(size = 7)
+  ) +
+  xlab("") +
+  scale_y_log10(labels = scales::dollar, n.breaks = 10) +
+  labs(title = "Which Departments Purchased the Explosives?",
+       x = "",
+       y = "Procurement $ in milions (log10 transformed)")
+```
+
+```{r}
+gg_spend
+```
+
+#### Contract Size by Agency Group
+
+Now lets look at contract size against agency group.
+
+```{r}
+tbl_pyro %>%
+  filter(amount_obligation > 0) %>% count(name_agency_cgac_award,
+                                          wt = amount_obligation,
+                                          sort = T,
+                                          name = "amount") %>%
+  munge_data() %>%
+  gt()
+```
+
+Looks like it is really skewed to a few agencies.  Perfect situation to lump some of the groups
+
+```{r}
+tbl_agency_sum <- 
+  tbl_pyro %>%
+  filter(amount_obligation > 0) %>%
+  mutate(
+    name_agency_cgac_award = name_agency_cgac_award %>% fct_lump(8, w = amount_obligation, other_level = "OTHER 6 AGENCIES")
+  ) %>%
+  group_by(name_agency_cgac_award, id_contract_analysis) %>%
+  summarise(amount = sum(amount_obligation, na.rm = T)) %>%
+  ungroup() %>%
+  filter(amount > 1000) %>%
+  mutate(name_agency_cgac_award = fct_reorder(name_agency_cgac_award, amount)) 
+```
+
+Now we can explore the range using a boxplot and even layer in the volume with a scatter plot!
+
+```{r}
+gg_contract <- tbl_agency_sum %>%
+  ggplot(aes(
+    x = factor(name_agency_cgac_award),
+    y = amount,
+    fill = name_agency_cgac_award
+  )) +
+  geom_boxplot() +
+  geom_jitter(color = "black",
+              size = 0.3,
+              alpha = .5)  +
+  scale_fill_viridis(discrete = TRUE, alpha = .5) +
+  theme_ipsum() +
+  scale_y_log10(labels = scales::dollar) +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 11)) +
+  labs(
+    title = "Distrubition of Award Size by Agency Group",
+    x = "",
+    y = "",
+    credits = "Awards over $1000"
+  ) +
+  coord_flip()
+
+```
+
+```{r}
+gg_contract
+```
+
+
+#### How Do We Procure Pyrotechnics
+
+Next lets see how the government procures this product and visualize it in a treemap.
+
+Lets set the treemap parameters
+
+```{r}
+lvl_opts <-  list(
+  list(
+    level = 1,
+    borderWidth = 0,
+    borderColor = "transparent",
+    dataLabels = list(
+      enabled = TRUE,
+      align = "left",
+      verticalAlign = "top",
+      style = list(
+        fontSize = "12px",
+        textOutline = FALSE,
+        color = "white"
+      )
+    )
+  ),
+  list(
+    level = 2,
+    borderWidth = 0,
+    borderColor = "transparent",
+    colorVariation = list(key = "brightness", to = 0.250),
+    dataLabels = list(enabled = T),
+    style = list(
+      fontSize = "8px",
+      textOutline = FALSE,
+      color = "white"
+    )
+  )
+)
+```
+
+Now we can build the treemap
+
+```{r}
+hc_treemap_spend <-
+  tbl_pyro %>%
+  count(name_department_award, type_award, sort = T) %>%
+  highcharter::data_to_hierarchical(
+    group_vars = c("name_department_award", "type_award"),
+    size_var = "n"
+  ) %>%
+  hchart(
+    type = "treemap",
+    levels = lvl_opts,
+    tooltip = list(valueDecimals = FALSE)
+  ) %>%
+  hc_add_theme(hc_theme_superheroes())
+```
+
+```{r}
+hc_treemap_spend
+```
+
+#### Deepive: Pyrotechnic Vendors
+
+Next lets take a look at the companies that supply this product.
+
+First thing we want to do is build a summary table that lets us explore the data.
+
+```{r}
+tbl_vendors <- 
+  tbl_pyro %>%
+  group_by(id_duns) %>%
+  summarise(
+    name_vendor = name_vendor[which.max(amount_obligation)],
+    date_first_award = min(date_obligation, na.rm = T),
+    date_recent_award = max(date_obligation, na.rm = T),
+    count_actions = n(),
+    count_contracts = n_distinct(id_contract_analysis, na.rm = T),
+    amount_contracts = sum(amount_obligation),
+    count_departments = n_distinct(name_department_award, na.rm = T),
+    count_agencies = n_distinct(name_agency_cgac_award, na.rm = T)
+  ) %>%
+  arrange(desc(amount_contracts))
+```
+
+Who are the top 10 vendors?
+
+```{r}
+tbl_vendors %>%
+  slice(1:10) %>%
+  munge_data() %>%
+  gt()
+```
+
+Lets skim the data
+
+```{r}
+skim(tbl_vendors)
+```
+
+Lets filter our data to include only vendors with over $500,000 in obligations.
+
+```{r}
+tbl_vendors <- tbl_vendors %>% filter(amount_contracts > 500000)
+```
+
+Now lets take a look at the top vendors visually.
+
+```{r}
+gg_top_vendors_pyro <-
+  tbl_vendors %>%
+  filter(amount_contracts > 0) %>%
+  mutate(
+    name_vendor_lumped = name_vendor %>% fct_lump(10, w = amount_contracts, other_level = "ALL OTHER VENDORS")
+  ) %>%
+  count(name_vendor_lumped, wt = amount_contracts, name = "amount") %>%
+  mutate(name_vendor_lumped = fct_reorder(name_vendor_lumped, amount)) %>%
+  ggplot(aes(x = name_vendor_lumped, y = amount)) +
+  geom_bar(stat = "identity", fill = "#B71212") +
+  coord_flip() +
+  theme_ipsum() +
+  theme(
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position = "none"
+  ) +
+  xlab("") +
+  labs(title = "Top Explosive Vendors") +
+  scale_y_continuous(labels = scales::dollar, n.breaks = 10)
+```
+
+```{r}
+gg_top_vendors_pyro
+```
+
+Lets try to figure out how many clusters exist.  We should transform the x and y axis to make it easier to process visually.
+
+Lets try 4 clusters
+
+```{r}
+mplot3.xy(
+  log(tbl_vendors$count_actions),
+  log(tbl_vendors$amount_contracts / 1000000),
+  cluster = "PAM",
+  cluster.params = list(k = 4),
+  main = "Contracts Actions vs Contract $ by PAM Cluster Group",
+  fit = "lm",
+  xlab = "Contract Actions",
+  ylab = "Contract $ (millions)",
+  theme = "white"
+)
+```
+
+Looks Good!
+
+Now lets take a look at a normalzied view of all of the key vendor features.
+
+```{r}
+tbl_vendors %>%
+  select(-c(id_duns)) %>%
+  select_if(is.numeric) %>%
+  preprocess(scale = T) %>%
+  mplot3.x(group.title = "Normalized Numeric Feature Distributions [Explosive Vendors - Over $500k in Obligations]",
+           theme = 'white',
+           density.line = T)
+```
+
+#### Deepdive: Dimension Reduction Award Offices
+
+First we need to build an input table with the data on the dimensions to be reduced
+
+```{r}
+tbl_pyro_office <- tbl_pyro %>%
+  group_by(name_office_award) %>%
+  summarise(
+    department = name_department_award[which.max(amount_obligation)],
+    agency = name_agency_cgac_award[which.max(amount_obligation)],
+    year_first = year(date_obligation) %>% min(),
+    date_recent_award = year(date_obligation) %>% max(),
+    count_actions = n(),
+    count_contracts = n_distinct(id_contract_analysis, na.rm = T),
+    amount_contracts = sum(amount_obligation),
+    count_distinct_vendors = n_distinct(id_duns, na.rm = T),
+    count_distinct_parents = n_distinct(id_duns_parent, na.rm = T),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(amount_contracts))
+
+tbl_pyro_office <-
+  tbl_pyro_office %>%
+  mutate(agency_lumped = fct_lump(agency, n = 6, other_level = "ALL OTHER AGENCIES"))
+
+```
+
+
+```{r}
+reactable(tbl_pyro_office)
+```
+
+```{r}
+tbl_umap <-
+  tbl_pyro_office %>%
+  select_if(is.numeric) %>%
+  uwot::umap(n_neighbors = 14, metric = "manhattan") %>%
+  as_tibble() %>% 
+  setNames(c("umap_001", "umap_002"))
+
+
+tbl_pyro_office <- 
+  tbl_pyro_office %>% 
+  bind_cols(
+    tbl_umap
+  )
+```
+
+Finally we can visualize the output.
+
+```{r}
+x <-
+  c(
+    "Department",
+    "Agency",
+    "Office",
+    "Contracts",
+    "Vendors",
+    "Amount $",
+    "Actions",
+    "umap 1",
+    "umap 2"
+  )
+
+y <-
+  sprintf(
+    "{point.%s:.2f}",
+    c(
+      "department",
+      "agency",
+      "name_office_award",
+      "count_actions",
+      "count_distinct_vendors",
+      "amount_contracts",
+      "count_actions",
+      "umap_001",
+      "umap_002"
+    )
+  )
+
+tltip <- tooltip_table(x, y)
+
+
+hc_umap <-
+  tbl_pyro_office %>%
+  hchart(
+    "scatter",
+    hcaes(
+      x = umap_001,
+      y = umap_002,
+      group = agency_lumped,
+      name = name_office_award
+    ),
+    marker = list(radius = 1, symbol = 'circle')
+  ) %>%
+  hc_add_theme(hc_theme_darkunica()) %>%
+  hc_xAxis(visible = F) %>%
+  hc_yAxis(visible = F) %>%
+  hc_title(text = "Pyrotechnic Office Dimension Reduction") %>%
+  hc_tooltip(
+    useHTML = TRUE,
+    headerFormat = "{point.name}",
+    pointFormat = tltip,
+    table = T
+  )
+```
+
+```{r}
+hc_umap
+```
+
+### Part III: FPDS Atom
+
+Next we will explore FPDS atom, this provides the full interface into all the data contained in FPDS going back to 1978.
+
+This provides access to significantly more data but is extremely compute heavy and exponentially slower than `fpds_csv`
+
+#### Function Base Paramaters
+
+```{r}
+args(fpds_atom)
+```
+
+
+#### Acquire All Procurements for Anduril
+
+```{r}
+tbl_anduril <-
+  fpds_atom(
+    vendor_name = "ANDURIL",
+    parse_contracts = T,
+    snake_names = T
+  )
+```
+
+Lets explore the data
+
+```{r}
+glimpse(tbl_anduril)
+```
+
+```{r}
+skim(tbl_anduril)
+```
+
+Lets remove excess features.
+
+```{r}
+tbl_anduril <-
+  tbl_anduril %>% preprocess(removeConstants = T) %>% as_tibble()
+```
+
+Lets make sure we have the Anduril we are looking for.
+
+```{r}
+tbl_count <- 
+  tbl_anduril %>%
+  count(name_vendor, id_duns, name = "count_actions")
+```
+
+```{r}
+gt(tbl_count)
+```
+
+Looks like there is another vendor that isn't who we are interested in.  Lets exclude them.
+
+```{r}
+tbl_anduril <-
+  tbl_anduril %>%
+  filter(id_duns != 103307059)
+```
+
+#### Anduril Awards by Agency and Year
+
+```{r}
+gt_dept <- tbl_anduril %>%
+  count(name_agency_cgac_award,
+        year_budget,
+        wt = amount_obligation,
+        name = "amount") %>%
+  arrange(desc(amount)) %>% 
+  munge_data() %>% 
+  gt()
+```
+
+```{r}
+gt_dept
+```
+
+#### Anduril Award Description Analysis
+
+One of the biggest benefits of `fpds_atom` is that it gives access to procurement text descriptions.  Lets take a look at them for Anduril and see what 2 sets of words show up together and visualize them in a network graph.
+
+```{r}
+stop_words <- get_stopwords(source = "smart")
+
+tidy_ngram <-
+  tbl_anduril %>%
+  select(id_contract_analysis,
+         description_obligation,
+         amount_obligation) %>%
+  unnest_tokens(bigram,
+                description_obligation,
+                token = "ngrams",
+                n = 2)
+```
+
+Next we can filter out stop words and build our bigram count table.
+
+
+```{r}
+bigram_counts <-
+  tidy_ngram %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word) %>%
+  count(word1, word2, sort = TRUE)
+```
+
+```{r}
+gg_bigraph <-
+  bigram_counts %>%
+  filter(!is.na(word1)) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "nicely") +
+  geom_edge_link(
+    aes(edge_alpha = n),
+    show.legend = FALSE,
+    arrow = arrow(length = unit(1.5, 'mm')),
+    start_cap = circle(3, 'mm'),
+    end_cap = circle(3, 'mm')
+  ) +
+  geom_node_text(aes(label = name)) +
+  theme_graph() +
+  labs(title = "Anduril FPDS Description Bigram")
+```
+
+```{r}
+gg_bigraph
+```
+
+#### Anduril Trigram Award Totals
+
+Next lets take a look at which 3 words show up together and how many contracts this and obligations they correspond to.
+
+
+First we build the ngram table
+
+```{r}
+tbl_ngrams <-
+  tbl_anduril %>%
+  select(id_contract_analysis,
+         description_obligation,
+         amount_obligation) %>%
+  unnest_tokens(ngram, description_obligation, token = "ngrams", n = 3)
+```
+
+Next we build the summary
+
+```{r}
+ tbl_ngrams <- 
+  tbl_ngrams %>%
+  group_by(ngram) %>%
+  summarise(
+    amount = sum(amount_obligation),
+    count_contracts = n_distinct(id_contract_analysis)
+  ) %>%
+  arrange(desc(amount)) %>% 
+  munge_data()
+```
+
+```{r}
+tbl_ngrams
+```
+
+Lets look at the top 15
+
+```{r}
+tbl_ngrams %>% 
+  slice(1:15) %>% 
+  gt()
+```
+
+### Part IV: Analyzing Phase III SBIR/STTRs
+
+This next section shows you how to take advantage of a special `fpds_csv` wrapper that acquires SBIR/STTR procurements.
+
+#### Acquire All Phase III SBIR Procurements
+
+```{r eval = F}
+df_all <-
+  fpds_research_csv(research_codes = c("SR3", "ST3"),
+                    snake_names = T)
+```
+
+For the sake of time lets use a cached version of the data I acquired yesterday.
+
+```{r}
+df_all <- read_rda("data/phase_iii.rda")
+```
+
+Lets look at the data 
+
+```{r}
+glimpse(df_all)
+```
+
+```{r}
+skim(df_all)
+```
+
+#### Phase III Cumulative Spend
+
+First thing to look at is the cumulative spend.
+
+```{r}
+tbl_cumulative_sbir <-
+  df_all %>%
+  count(date_obligation, wt = amount_obligation, name = "amount") %>%
+  mutate(amount_cumulative = cumsum(amount))
+```
+
+Next lets visualize it in an area chart.
+
+```{r}
+gg_cumulative_spend <-
+  tbl_cumulative_sbir %>%
+  ggplot(aes(x = date_obligation, y = amount_cumulative)) +
+  theme_minimal() +
+  geom_line(color = "#00B0F0", size = .5) +
+  geom_area(fill = "#00B0F0",
+            alpha = 0.25,
+            color = NA) +
+  theme(
+    panel.background = element_rect(fill = "#fffff8", color = NA),
+    plot.background = element_rect(fill = "#fffff8", color = NA)
+  ) +
+  labs(
+    x = NULL,
+    y = "$ Obligated",
+    title = "Cumulative Phase III STTR/SBIR Obligations",
+    subtitle = "",
+    caption = ""
+  ) +
+  scale_x_date(expand = c(0, 0),
+               breaks = scales::pretty_breaks(n = 10)) +
+  hrbrthemes::theme_ipsum_rc(
+    grid = "XY",
+    plot_title_size = 10,
+    subtitle_size = 8.5,
+    caption_size = 8.5,
+    axis_text_size = 10,
+    axis_title_size = 10,
+    strip_text_size = 10
+  ) +
+  geom_smooth(
+    colour = "#000000",
+    method = 'loess',
+    span = .3,
+    size = .5,
+    alpha = 0.45
+  ) +
+  geom_smooth(
+    colour = "red",
+    method = 'lm',
+    size = .5,
+    alpha = 0.45
+  ) +
+  scale_y_continuous(labels = scales::dollar,
+                     breaks = scales::pretty_breaks(n = 10))
+```
+
+```{r}
+gg_cumulative_spend
+```
+
+R is a functional programming language.  Lets take advantage of this by turning this area visualization code into a function that we will use later for something very cool.
+
+```{r}
+plot_gg_cumulative_area <-
+  function(data,
+           plot_title = "",
+           use_lm = T,
+           use_loess = T)  {
+    gg <- data %>%
+      ggplot(aes(x = date_obligation, y = amount_cumulative)) +
+      theme_minimal() +
+      geom_line(color = "#00B0F0", size = .5) +
+      geom_area(fill = "#00B0F0",
+                alpha = 0.25,
+                color = NA) +
+      theme(
+        panel.background = element_rect(fill = "#fffff8", color = NA),
+        plot.background = element_rect(fill = "#fffff8", color = NA)
+      ) +
+      labs(
+        x = NULL,
+        y = "$ Obligated",
+        title = plot_title,
+        subtitle = "",
+        caption = ""
+      ) +
+      scale_x_date(expand = c(0, 0),
+                   breaks = scales::pretty_breaks(n = 10)) +
+      hrbrthemes::theme_ipsum_rc(
+        grid = "XY",
+        plot_title_size = 7,
+        subtitle_size = 6.5,
+        caption_size = 6.5,
+        axis_text_size = 7,
+        axis_title_size = 7,
+        strip_text_size = 7
+      ) +
+      scale_y_continuous(labels = scales::dollar,
+                         breaks = scales::pretty_breaks(n = 10))
+    
+    if (use_loess) {
+      gg <- gg  +
+        geom_smooth(
+          colour = "#000000",
+          method = 'loess',
+          span = .3,
+          size = .5,
+          alpha = 0.45
+        )
+    }
+    
+    if (use_lm) {
+      gg <- gg +
+        geom_smooth(
+          colour = "red",
+          method = 'lm',
+          size = .5,
+          alpha = 0.45
+        )
+    }
+    
+    gg
+    
+  }
+```
+
+Lets make sure the function worked
+
+```{r}
+plot_gg_cumulative_area(
+  data = tbl_cumulative_sbir,
+  plot_title = "Does this work?",
+  use_lm = T,
+  use_loess = T
+)
+```
+
+It worked.
+
+#### Phase III Annual Spend by Type
+
+Now lets look at the spend over time by year by SBIR/STTR type.
+
+```{r}
+tbl_year <- df_all %>%
+  group_by(code_research, year_fiscal_obligation) %>%
+  summarise(amount = sum(amount_obligation),
+            .groups = "drop")
+```
+
+```{r}
+tbl_year %>%
+  munge_data() %>%
+  arrange(year_fiscal_obligation) %>%
+  gt()
+
+```
+
+Now we can visualize it.
+
+```{r}
+hc_bar_year <- hchart(tbl_year,
+                      "column",
+                      hcaes(x = year_fiscal_obligation,
+                            y = amount,
+                            group = code_research)) %>%
+  hc_add_theme(hc_theme_elementary())  %>%
+  hc_title(text = "SBIR/STTR Phase III Awards by Year") %>% 
+  hc_plotOptions(series = list(stacking = "normal"))
+```
+
+```{r}
+hc_bar_year
+```
+
+#### Phase III Department Spend Stream Graph
+
+Next lets take a look at department spend over time.
+
+Again we are going to want to lump a bunch of the low frequency agencies together.
+
+We also will limit this analysis for SBIR/STTRs since 2000
+
+```{r}
+tbl_by_dept <-
+  df_all %>%
+  count(year_budget,
+        name_department_award,
+        wt = amount_obligation,
+        name = "amount") %>%
+  filter(amount > 0, year_budget >= 2000) %>%
+  mutate(
+    department_group = fct_lump(
+      name_department_award,
+      n = 5,
+      w = amount,
+      other_level = "ALL OTHER DEPARTMENTS"
+    )
+  ) %>%
+  count(year_budget, department_group, wt = amount, name = "amount") %>%
+  mutate(department_group = fct_reorder(department_group, -amount))
+```
+
+Now we can build an interactive streamgraph with this information.
+
+```{r}
+hc_dept_stream_graph <-
+  tbl_by_dept %>%
+  hchart("streamgraph",
+         hcaes(year_budget, amount, group = department_group)) %>%
+  hc_yAxis(visible = T,
+           startOnTick = FALSE,
+           endOnTick = FALSE) %>%
+  hc_title(text = "SBIR Phase III by Department")
+```
+
+```{r}
+hc_dept_stream_graph
+```
+
+#### Exploring SBIR/STTR Phase III Award by Agency
+
+Lets explore this data by agency.
+
+First lets see the raw breakdown by agency.
+
+```{r}
+tbl_agency_amt <-
+  df_all %>%
+  filter(!is.na(name_agency_cgac_award)) %>%
+  count(name_agency_cgac_award,
+        wt = amount_obligation,
+        name = "amount",
+        sort = T)
+```
+
+
+```{r}
+tbl_agency_amt %>%
+  munge_data() %>%
+  gt()
+
+```
+
+Next lets lump together low frequency agencies and visualize this data.
+
+```{r}
+gg_agency <-
+  tbl_agency_amt %>%
+  mutate(
+    agency_group = fct_lump(
+      name_agency_cgac_award,
+      n = 15,
+      w = amount,
+      other_level = "ALL OTHER AGENCIES"
+    )
+  ) %>%
+  count(agency_group,
+        wt = amount,
+        sort = T,
+        name = "amount") %>%
+  mutate(agency_group = fct_reorder(agency_group, amount)) %>%
+  ggplot(aes(x = agency_group, y = amount)) +
+  geom_bar(
+    stat = "identity",
+    fill = "#f68060",
+    alpha = .6,
+    width = .4
+  ) +
+  coord_flip() +
+  xlab("") +
+  scale_y_continuous(labels = scales::dollar, n.breaks = 5) +
+  geom_text(
+    aes(label = round(amount / 1000000, digits = 2)),
+    position = position_dodge(width = 0.9),
+    vjust = -0.25,
+    check_overlap = T
+  ) +
+  ggtitle("Top SBIR/STTR Phase III Awarding Agencies") +
+  labs(subtitle = "By Lumped Government-twide Accounting Agency [CGAC] - Top 15",
+       x = "") +
+  theme_ipsum()
+```
+
+```{r}
+gg_agency
+```
+
+Lets make this look better
+
+```{r}
+gg_agency <-
+  gg_agency +
+  theme(
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position = "none",
+    text = element_text(size = 8,  family = "serif")
+  ) +
+  scale_y_sqrt(labels = scales::dollar, n.breaks = 4)
+```
+
+```{r}
+gg_agency
+```
+
+#### Explore Every SBIR/STTR Awarding Office
+
+Lets take a look at all the awarding offices of SBIR Phase III and put it into an interactive table.
+
+```{r}
+tbl_office <-
+  df_all %>%
+  filter(!is.na(name_office_award)) %>%
+  group_by(name_department_award,
+           name_agency_cgac_award,
+           name_office_award) %>%
+  summarise(
+    date_first = min(date_obligation, na.rm = T),
+    date_recent = max(date_obligation, na.rm = T),
+    distinct_vendors = n_distinct(id_duns, na.rm = T),
+    amount = sum(amount_obligation, na.rm = T),
+    amount_mean = mean(amount_obligation),
+    actions = n(),
+    contracts = n_distinct(id_contract_analysis, na.rm = T),
+    .groups = "drop"
+  ) %>%
+  filter(amount > 0) %>%
+  arrange(desc(amount))
+```
+
+```{r}
+table_office <- tbl_office %>%
+  reactable(
+    filterable = F,
+    resizable = T,
+    searchable = T,
+    showPageSizeOptions = T,
+    pageSizeOptions = c(5, 10, 20),
+    sortable = T,
+    compact = T,
+    columns = list(
+      date_first = colDef(name = "First Award"),
+      date_recent = colDef(name = "Recent Award"),
+      name_department_award = colDef(
+        name = "Department",
+        sortable = T,
+        filterable = T
+      ),
+      name_agency_cgac_award = colDef(
+        name = "Agency",
+        sortable = T,
+        filterable = T
+      ),
+      name_office_award = colDef(
+        name = "Office",
+        sortable = T,
+        filterable = T
+      ),
+      distinct_vendors = colDef(name = "Unique Vendors"),
+      amount = colDef(
+        name = "$ Total",
+        format = colFormat(
+          prefix = "$",
+          separators = TRUE,
+          digits = 0
+        )
+      ),
+      amount_mean = colDef(
+        name = "$ Mean",
+        format = colFormat(
+          prefix = "$",
+          separators = TRUE,
+          digits = 0
+        )
+      ),
+      contracts = colDef(name = "Unique Contracts"),
+      actions = colDef(name = "Contract Actions")
+    )
+  )
+```
+
+```{r}
+table_office
+```
+
+#### First Time Phase III Vendor Analysis.
+
+First thing is to build a table that shows us first time vendors.  We have to exclude 1 special DUNS number, inquisitive minds should feel free to explore it on their own time.
+
+```{r}
+tbl_first <- df_all %>%
+  filter(id_duns != 123456787) %>%
+  group_by(id_duns) %>%
+  filter(date_obligation == min(date_obligation)) %>%
+  filter(amount_obligation > 0) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(
+    id_duns,
+    year_budget_first = year_budget,
+    date_first_phase_3 = date_obligation,
+    id_contract_analysis_first = id_contract_analysis,
+    department_first = name_department_award,
+    agency_first = name_agency_cgac_award,
+    office_first = name_office_award
+  ) %>%
+  arrange(desc(year_budget_first))
+```
+
+This gives us information on 2,450 Phase III awardees.
+
+Now lets look at the raw counts over time between fisca year 1998 and 2020.
+
+```{r}
+gg_first_time <- tbl_first %>%
+  count(year_budget_first) %>%
+  filter(year_budget_first >= 1998, year_budget_first <= 2020) %>%
+  ggplot(aes(year_budget_first, n)) +
+  geom_line() +
+  theme_ipsum() +
+  labs(title = "New Phase III SBIR/STTR Recipients",
+       x = "Budget Year",
+       y = "Count")
+```
+
+```{r}
+gg_first_time
+```
+
+#### Agency Attribution of New Phase III Companies
+
+Next lets take it a step further and take a look at an attribution by year of which agencies were responsible for the new vendors.
+
+```{r}
+colors <-
+  c("#00008BFF",
+    "#1EFAA0FF",
+    "#00FA00FF",
+    "#ADFF2FFF",
+    "#FA7D00FF",
+    "#78005AFF")
+
+hc_attribution <- tbl_first %>%
+  count(year_budget_first, agency_first) %>%
+  filter(year_budget_first >= 1998, year_budget_first <= 2020) %>%
+  mutate(agency_lumped = fct_lump(agency_first, n = 5, other_level = "ALL OTHER AGENCIES")) %>%
+  count(year_budget_first, agency_lumped, wt = n) %>%
+  mutate(agency_lumped = fct_reorder(agency_lumped, n)) %>%
+  filter(!is.na(agency_lumped)) %>%
+  hchart(
+    "column",
+    hcaes(year_budget_first, n, group = agency_lumped),
+    stacking = "percent",
+    borderWidth = 0,
+    groupPadding = 0,
+    pointPadding  = 0,
+  ) %>%
+  hc_colors(colors) %>%
+  hc_add_theme(hc_theme_538()) %>%
+  hc_xAxis(gridLineWidth = 0,
+           title = list(text = NULL)) %>%
+  hc_tooltip(
+    table = TRUE,
+    outside = TRUE,
+    shared = TRUE,
+    useHTML = TRUE,
+    headerFormat = "<small>{point.key}</small><table>",
+    pointFormat = str_c(
+      "<tr><td style=\"color: {series.color}\">{series.name}: </td>",
+      "<td style=\"text-align: right\"><b>{point.y:0.f}</b></td>"
+    ),
+    footerFormat = "<tr><td><b>Total</b>: </td><td style=\"text-align: right\"><b>{point.total:0.f}</b></td></tr></table>",
+    style = list(fontSize = "0.7em")
+  ) %>%
+  hc_legend(
+    verticalAlign = "top",
+    align = "left",
+    itemStyle =  list(fontWeight = 500)
+  ) %>%
+  hc_title(text = "Share of New Phase III Awardees by Agency Group") %>%
+  hc_plotOptions(series = list(
+    marker = list(
+      radius = 0,
+      enabled = FALSE,
+      symbol = "circle"
+    ),
+    states = list(hover = list(halo = list(size = 0)))
+  )) %>%
+  hc_yAxis(title = list(text = "Share of New Vendors"),
+           type = "percent")
+```
+
+```{r}
+hc_attribution
+```
+
+#### Deep Dive: Phase III Awardee Exploration Trelliscope
+
+Now lets dig into the Phase III awardees and build an interactive trelliscope to explore the data!
+
+First step is to build a vendor summary data frame
+
+```{r}
+
+tbl_vendors <-
+  df_all %>%
+  filter(!is.na(id_duns)) %>%
+  group_by(id_duns) %>%
+  summarise(
+    vendor = name_vendor[which.max(amount_obligation)],
+    date_first = min(date_obligation, na.rm = T),
+    date_recent = max(date_obligation, na.rm = T),
+    count_types = n_distinct(code_research, na.rm = T),
+    count_agencies = n_distinct(id_cgac_award, na.rm = T),
+    count_departments = n_distinct(id_department_award),
+    count_offices = n_distinct(name_office_award, na.rm = T),
+    amount = sum(amount_obligation, na.rm = T),
+    amount_mean = mean(amount_obligation),
+    actions = n(),
+    contracts = n_distinct(id_contract_analysis, na.rm = T),
+    .groups = "drop"
+  ) %>%
+  filter(amount > 0) %>%
+  arrange(desc(amount)) %>%
+  mutate(
+    year_recent = year(date_recent),
+    year_first = year(date_first),
+    .before = "date_first"
+  )
+```
+
+Here are the top 10
+
+```{r}
+tbl_vendors %>%
+  slice(1:10) %>%
+  munge_data() %>%
+  gt()
+```
+
+Ahh there is that interesting DUNS number again.  Lets get rid of it.
+
+```{r}
+tbl_vendors <-
+  tbl_vendors %>%
+  filter(id_duns != 123456787)
+```
+
+
+Lets explore the data interactively again.
+
+```{r eval = F}
+esquisse::esquisser(tbl_vendors)
+```
+Lets filter out some of the the small awardees by ensuring the companies have at-least 2 contracts and over $500,000 in awards
+
+```{r}
+tbl_vendors <-
+  tbl_vendors %>%
+  filter(contracts >= 2, amount >= 500000)
+```
+
+Lets try to figure out how many clusters there are.
+
+```{r}
+mplot3.xy(
+  log(tbl_vendors$actions),
+  log(tbl_vendors$amount / 1000000),
+  cluster = "PAM",
+  cluster.params = list(k = 10),
+  main = "Phase III $ by Actions",
+  fit = "lm",
+  xlab = "Contract Actions",
+  ylab = "Contract $ (millions)",
+  theme = "white"
+)
+```
+
+10 looks good.  
+
+Next we can add the cluster to our summary data.
+
+```{r}
+clusters <- tbl_vendors %>% select(-id_duns) %>%
+  select_if(is.numeric) %>%
+  rtemis::u.PAM(k = 10)
+
+tbl_vendors <-
+  tbl_vendors %>%
+  mutate(pam_cluster = as.character(clusters$clusters.train),
+         .before = "id_duns")
+```
+
+
+Now we can build the trelliscope.  We need to build a nested table with the cumulative awards for each of the Phase III awardees.
+
+```{r}
+tbl_cumulative <-
+  df_all %>%
+  filter(id_duns %in% c(tbl_vendors$id_duns)) %>%
+  group_by(id_duns, date_obligation) %>%
+  summarise(amount = sum(amount_obligation)) %>%
+  mutate(amount_cumulative = cumsum(amount)) %>%
+  ungroup() %>%
+  group_by(id_duns) %>%
+  nest() %>%
+  ungroup()
+```
+
+Lets see if it worked
+
+```{r}
+tbl_cumulative$data[[7]] %>% plot_gg_cumulative_area(plot_title = "Test")
+```
+
+Now we can buid the trelliscope using the function we built to plot the cumulative area for each of the companies.  We also want to join in all the features we want to explore!
+
+```{r}
+tbl_trelliscope_data <-
+  tbl_vendors %>%
+  left_join(tbl_cumulative, by = "id_duns") %>%
+  left_join(tbl_first %>% select(id_duns, department_first, agency_first, office_first),
+            by = "id_duns") %>%
+  mutate_at(c("year_recent", "year_first"), as.character)
+```
+
+```{r eval = F}
+trell_sample <- tbl_trelliscope_data %>%
+  sample_n(10) %>%
+  mutate(amount = round(amount / 1000000, digits = 2),
+         panel = map_plot(data,
+                          function(data) {
+                            plot_gg_cumulative_area(
+                              data = data,
+                              plot_title = "Cumulative Phase IIIs",
+                              use_lm = T,
+                              use_loess = T
+                            )
+                          })) %>%
+  arrange(desc(amount)) %>%
+  trelliscope(
+    name = "Phase III Cumulative Awardee Trelliscope",
+    desc = "Minimum of 2 Phase III contracts",
+    nrow = 1,
+    ncol = 2,
+    width = 500,
+    height = 500,
+    state = list(
+      labels = c(
+        "vendor",
+        "amount",
+        "contracts",
+        'date_first',
+        "date_recent",
+        "pam_cluster",
+        "department_first",
+        "agency_first",
+        "office_first"
+      ),
+      sort_spec(name = "amount", dir = "desc")
+    )
+  )
+
+```
+
+```{r eval = F}
+trell_sample
+```
+
+Looks good, now lets build the full trelliscope.
+
+```{r eval = F}
+phase_3_trelliscope <-
+  tbl_trelliscope_data %>%
+  mutate(amount = round(amount / 1000000, digits = 2),
+         panel = map_plot(data,
+                          function(data) {
+                            plot_gg_cumulative_area(
+                              data = data,
+                              plot_title = "Cumulative Phase IIIs",
+                              use_lm = T,
+                              use_loess = T
+                            )
+                          })) %>%
+  arrange(desc(amount)) %>%
+  trelliscope(
+    name = "Phase III Cumulative Awardee Trelliscope",
+    desc = "Minimum of 2 Phase III contracts",
+    nrow = 1,
+    ncol = 2,
+    width = 500,
+    height = 500,
+    state = list(
+      labels = c(
+        "vendor",
+        "amount",
+        "contracts",
+        'date_first',
+        "date_recent",
+        "pam_cluster",
+        "department_first",
+        "agency_first",
+        "office_first"
+      ),
+      sort_spec(name = "amount", dir = "desc")
+    )
+  )
+
+```
+
+```{r eval = F}
+phase_3_trelliscope
+```
+
+### Part V: Exploring the AFWERX Portfolio
+
+Now lets explore the AFWERX portfolio.
+
+##### AFWERX Portfolio Data
+
+First lets bring in the data
+
+```{r}
+df_afwerx <- sbir_afwerx_portfolio(use_cached = T)
+```
+
+Now lets look at the data
+
+```{r}
+df_afwerx %>% glimpse()
+```
+
+```{r}
+df_afwerx %>% skim()
+```
+
+#### AFWERX Counts
+
+Lets look at some quick counts:
+
+First by phase:
+
+```{r}
+df_afwerx %>%
+  count(id_program, id_phase, sort = T) %>% 
+  gt()
+```
+
+Next by solicitation type:
+
+```{r}
+df_afwerx %>%
+  count(id_phase, type_solicitation, sort = T) %>% 
+  gt()
+```
+
+Next by solicitation:
+
+```{r}
+df_afwerx %>%
+  count(
+    id_phase,
+    id_program,
+    type_solicitation,
+    group_solicitation,
+    name_solicitation,
+    sort = T
+  ) %>% 
+  gt()
+```
+
+#### AFWERX Company Keyword Analysis
+
+Now lets explore some of the keywords.
+
+```{r}
+tbl_company_keywords <- df_afwerx %>%
+  select(
+    id_phase,
+    id_program,
+    type_solicitation,
+    group_solicitation,
+    name_solicitation,
+    name_company_clean,
+    keyword_company_clean_afwerx
+  ) %>%
+  separate_rows(keyword_company_clean_afwerx, sep = "\\|") %>%
+  mutate_all(str_squish)
+```
+
+Now lets count the keywords
+
+```{r}
+tbl_af_keywords <- 
+  tbl_company_keywords %>%
+  mutate_all(str_squish) %>%
+  count(keyword_company_clean_afwerx, sort = T)
+```
+
+Here are all the keywords and their count
+
+```{r}
+af_keywords <- reactable(tbl_af_keywords, filterable = T, searchable = T)
+```
+
+```{r}
+af_keywords
+```
+
+Now lets explore the top 50 keywords.
+
+```{r}
+gg_top_50 <- 
+  tbl_af_keywords %>%
+  slice(1:50) %>%
+  mutate(keyword_company_clean_afwerx = fct_reorder(keyword_company_clean_afwerx, n)) %>% 
+  ggplot(aes(x = keyword_company_clean_afwerx, y = n)) +
+  geom_bar(
+    stat = "identity",
+    fill = "#f68060",
+    alpha = .6,
+    width = .4
+  ) +
+  coord_flip() +
+  xlab("") +
+  theme_bw() +
+  scale_y_log10() +
+  geom_text(aes(label = n),
+            position = position_dodge(width = 0.9),
+            vjust = -0.25) +
+  ggtitle("Top 50 Keywords for AFWERX Companies")
+```
+
+```{r}
+gg_top_50
+```
+
+#### AFWERX Cohort Keyword Log Odds Analysis
+
+Now lets take a look at which keywords associate with which cohorts disproportionately.
+
+First lets build the count.
+
+```{r}
+tbl_keyword_counts <- tbl_company_keywords %>%
+  count(type_solicitation, keyword_company_clean_afwerx, sort = T)
+```
+
+Now lets explore the density of the count.
+
+```{r}
+mplot3.x(x = tbl_keyword_counts$n)
+```
+
+Really skews towards low keyword count.  Lets make sure the keyword shows up atleast 5 times.
+
+```{r}
+tbl_keyword_counts %>%
+  filter(n >= 5) %>%
+  pull(n) %>%
+  mplot3.x(x = .)
+```
+
+This looks better!
+
+Lets look at the log odds table now.
+
+```{r}
+tbl_lo <-
+  tbl_keyword_counts %>%
+  filter(n >= 5) %>%
+  tidylo::bind_log_odds(set = type_solicitation, feature = keyword_company_clean_afwerx, n = n) %>%
+  arrange(desc(log_odds_weighted))
+```
+
+Now lets look at the table
+
+```{r}
+reactable(tbl_lo, filterable = T, sortable = T, searchable = T)
+```
+
+#### Which AFWERX Words Are Counted Together?
+
+Now lets use some pairwise analysis conditioned on company to see which words often appear together.
+
+```{r}
+tbl_company_keywords %>%
+  pairwise_count(feature = name_company_clean, item = keyword_company_clean_afwerx) %>%
+  arrange(desc(n)) %>% 
+  reactable(filterable = T, searchable = T)
+```
+
+##### Which AFWERX Companies are Very Similar Based Upon Keywords?
+
+Now lets look at highly correlated companies using pairwise correlations conditioning keyword againt company.
+
+```{r}
+hc_cor_key <- tbl_company_keywords %>%
+  count(name_company_clean, keyword_company_clean_afwerx) %>%
+  pairwise_cor(item = name_company_clean, feature = keyword_company_clean_afwerx) %>%
+  filter(correlation > .70) %>%
+  graph_from_data_frame() %>%
+  hchart() %>% 
+  hc_add_theme(hc_theme_darkunica()) %>% 
+  hc_title(text = "Highly Correlated Afwerx Portfolio Company by Keywords") %>% 
+  hc_xAxis(visible = F) %>% 
+  hc_yAxis(visible = F)
+```
+
+```{r}
+hc_cor_key
+```
+
+### Part VI: The 2021 Defense Budget
+
+Finally lets explore the 2021 Department of Defense Budget.
+
+#### Acquire 2021 Budget Data
+
+First step is to acquire the data.
+
+```{r}
+df_budget <- dod_years_budgets(budget_years = 2021, snake_names = T)
+```
+
+Lets take a look at it.
+
+```{r}
+skim(df_budget)
+```
+
+```{r}
+glimpse(df_budget)
+```
+
+#### Macro Exploration of the Budget
+
+Lets explore the breakdown by agency:
+
+```{r}
+df_budget %>%
+  count(name_agency_cgac,
+        wt = amount_item,
+        name = "amount",
+        sort = T) %>%
+  munge_data() %>%
+  gt()
+```
+
+Now let's take a look at breakdown by Agency and Budget Group:
+
+```{r}
+df_budget %>%
+  count(
+    name_dod_budget_group,
+    name_agency_cgac,
+
+    wt = amount_item,
+    name = "amount",
+    sort = T
+  ) %>%
+  munge_data() %>%
+  gt()
+
+```
+
+
+#### Which Items Are We Buying
+
+Now lets take a look at what specific items we are looking to acquire.
+
+```{r}
+tbl_items <-
+  df_budget %>%
+  filter(amount_unit_cost > 0, count_item > 0) %>%
+  select(
+    count_item,
+    amount_unit_cost,
+    name_program_element_actual,
+    name_agency_cgac,
+    slug_organization_account
+  ) %>%
+  distinct()
+```
+
+Lets first take a look at a static scatter plot.
+
+```{r}
+gg_items <-
+  tbl_items %>%
+  ggplot(aes(x = count_item, y = amount_unit_cost, color = name_agency_cgac)) +
+  geom_jitter() +
+  theme_ipsum() +
+  labs(title = "2021 Requested Budget Items",
+       subtitle = "Untransformed and Static") +
+  scale_y_continuous(labels = scales::dollar)
+```
+
+Lets see how this looks?
+
+```{r}
+gg_items
+```
+
+Not great, some huge skew and it would be nice to be able to see the exact line items.
+
+Lets build an interactive chart that does that.
+
+```{r}
+hc_items <-
+  hchart(
+  tbl_items,
+  "scatter",
+  hcaes(
+    x = count_item,
+    y = amount_unit_cost,
+    group = name_agency_cgac,
+    name = name_program_element_actual
+  ),
+  marker = list(radius = 3, symbol = 'circle'),
+  regression = TRUE
+) %>%
+  hc_title(text = "2021 Defense Budget Requested Items") %>%
+  hc_xAxis(title = list(text = "Item Count (log10 transformed)"),
+           type = "logarithmic") %>%
+  hc_yAxis(title = list(text = "$ Amount Per Unit (log 10 transformed)"),
+           type = "logarithmic") %>%
+  hc_tooltip(
+    table = TRUE,
+    outside = TRUE,
+    shared = TRUE,
+    useHTML = TRUE,
+    headerFormat = "<small>{point.key}</small><table>",
+    pointFormat = str_c(
+      "<tr><td style=\"color: {series.color}\">{series.name}: </td>",
+      "<tr><td style=\"text-align: right\"><b>Items: {point.x:,.0f}</b></td></tr>",
+      "<tr><td style=\"text-align: right\"><b>$ Per item: {point.y:,0.f}</b></td></tr>",
+      "<td style=\"text-align: right\"></td>"
+    ),
+    style = list(fontSize = "0.7em")
+  ) %>%
+  hc_colors(c("#d35400", "#2980b9", "#2ecc71", "black")) %>%
+  hc_add_dependency("plugins/highcharts-regression.js") %>%
+  hc_add_theme(hc_theme_538())
+```
+
+```{r}
+hc_items
+```
+#### Exploring the whole 2021 Budget
+
+Lets see if we can explore the whole budget interactively.
+
+To do that we will build a hierarcical sunburst visualization.
+
+First lets get the data we need.
+
+```{r}
+treemap_columns <-
+  c(
+    "type_budget",
+    "name_dod_budget_group",
+    "name_agency_cgac",
+    "name_account_omb_clean",
+    "name_budget_parent",
+    "name_budget_activity",
+    "name_program_element",
+    "slug_organization_account"
+  )
+
+tbl_treemap <- df_budget %>%
+  count(
+    !!!syms(treemap_columns),
+    wt = amount_item,
+    name = "amount",
+    sort = T
+  ) %>%
+  filter(amount > 0)
+```
+
+Now we can build the interactive sunburst chart.
+
+```{r eval = T}
+tm <-
+  tbl_treemap %>%
+  treemap(index = treemap_columns,
+          vSize = "amount",
+          type = "index")
+
+tm_nest <- d3_nest(tm$tm[, c(treemap_columns,
+                             "vSize",
+                             "color")],
+                   value_cols = c("vSize", "color"))
+
+sun <- sund2b(
+  tm_nest,
+  colors = htmlwidgets::JS(# yes this is a little different, so please pay attention
+    #  "function(d) {return d.color}" will not work
+    "function(name, d){return d.color || '#ccc';}"),
+  valueField = "vSize",
+  elementId = "my-sunburst"
+)
+```
+
+Lets See how it looks:
+
+```{r}
+sun
+```
+
+
+#### Pivot Table
+
+Finally let me show you how we can port this data into an interactive pivottable!
+
+```{r}
+rpiv <- rpivotTable::rpivotTable(df_budget,
+                                 rows = "name_agency_cgac",
+                                 vals = "amount_item",
+                                 aggregatorName = "Sum")
+```
+
+```{r}
+rpiv
+```
+
+
+#### Questions and Follow Up

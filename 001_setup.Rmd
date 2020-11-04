@@ -1,0 +1,47 @@
+---
+title: "govtrakR Workshop Setup and Tips"
+author: "Alex Bresler"
+date: "11/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+## Pre-requisities
+
+Please install [R]() and RStudio locally or setup an [Rstudio Cloud]()
+
+```{r install, eval = F}
+source("code/001_install.R")
+```
+
+If that does not work 
+
+```{r}
+source("")
+```
+
+### Clone the Git
+
+Next you can clone the git like this:
+
+If that does not work you can see the individual files on the links here and save them:
+
+
+
+### Package Reference: 
+
+You can also explore [govtrackR reference library](http://asbcllc.com/govtrackR/reference/index.html)
+
+### Tips: 
+
+* Use tab to autocomplete functions!
+* Use shift + command + M for a shortcut to the pipe aka %>%
+
+
+
+
+
+
