@@ -1,7 +1,7 @@
 ---
 title: "govtrakR Workshop Setup and Tips"
 author: "Alex Bresler"
-date: "11/3/2020"
+date: "11/5/2020"
 output: html_document
 ---
 
@@ -9,49 +9,45 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 ```
 
+
 ## Pre-requisities
 
 Please install <a href="https://cran.r-project.org/" target="_blank">R</a> and  <a href="https://rstudio.com/products/rstudio/download/" target="_blank">RStudio</a> locally or setup an <a href="https://login.rstudio.cloud/login?redirect=%2Foauth%2Fauthorize%3Fredirect_uri%3Dhttps%253A%252F%252Frstudio.cloud%252Flogin%26client_id%3Drstudio-cloud%26response_type%3Dcode%26show_auth%3D0%26show_login%3D1%26show_setup%3D1&setup=True" target="_blank">RStudio Cloud</a>.
 
 ## Clone the Git
 
+Whether using the R on the cloud or locally you need to clone this git from <a href="https://github.com/abresler/govtrakR_training_001" target="_blank">this link</a>
+
 ### RStudio Cloud
 
-<img src="https://i.imgur.com/VLaM2fh.png"  width="300" height="300">
+<img src="https://i.imgur.com/VLaM2fh.png"  width="500" height="500">
 
+#### Rstudio Local
 
-#### Rstudio Locale
+<img src="https://i.imgur.com/hrPIybS.png"  width="800" height="800">
 
-<img src="https://i.imgur.com/hrPIybS.png"  width="500" height="500">
+<img src="https://i.imgur.com/rnRm1RJ.png"  width="800" height="800">
 
-<img src="https://i.imgur.com/rnRm1RJ.png"  width="500" height="500">
+<img src="https://i.imgur.com/f2yVBUm.png"  width="800" height="800">
 
-<img src="https://i.imgur.com/f2yVBUm.png"  width="500" height="500">
+### Install Packages
 
+Next open the code folder and open the file `001_install.r` and execute the code.
 
-```{r install, eval = F}
-source("code/001_install.R")
-```
+### Explore the Workshop
 
-If that does not work 
+You can use either the code in the folder `002_code.r` or execute the code blocks in the `002_govtrackr_analysis.Rmd`
 
-
-### Clone the Git
-
-Next you can clone the git like this:
-
-If that does not work you can see the individual files on the links here and save them:
+## Other Links
 
 ### Package Reference: 
 
-<a href="https://hafen.github.io/trelliscopejs/" target="_blank">govtrackR Reference</a>
+<a href="https://asbcllc.com/govtrackR/reference/index.html" target="_blank">govtrackR Reference</a>
 
 ### Tips: 
 
 * Use tab to autocomplete functions!
 * Use shift + command + M for a shortcut to the pipe aka %>%
-
-
 
 ### Other Packages to Explore
 
@@ -71,6 +67,3 @@ If that does not work you can see the individual files on the links here and sav
 <a href="https://bookdown.org/yihui/rmarkdown-cookbook/" target="_blank">Rmarkdown Cookbook</a>
 
 <a href="https://bookdown.org/yihui/rmarkdown-cookbook/" target="_blank">Bookdown Archive</a>
-
-
-
