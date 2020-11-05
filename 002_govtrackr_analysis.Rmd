@@ -206,7 +206,7 @@ hc_new_psc_node_graph
 
 ### Part II: FPDS CSV
 
-This section explores `fpds_csv` which provides real time access into the <a href="https://www.fpds.gov/ezsearch/search.do?indexName=awardfull&templateName=1.5.1&s=FPDS.GOV&q=Google-like+search+to+help+you+find+federal+contracts..." target="_blank">FPDS/a> csv interface.
+This section explores `fpds_csv` which provides real time access into the <a href="https://www.fpds.gov/ezsearch/search.do?indexName=awardfull&templateName=1.5.1&s=FPDS.GOV&q=Google-like+search+to+help+you+find+federal+contracts..." target="_blank">FPDS</a> csv interface.
 
 ```{r eval = F}
 args(fpds_csv)
@@ -1313,7 +1313,7 @@ gg_agency <-
     check_overlap = T
   ) +
   ggtitle("Top SBIR/STTR Phase III Awarding Agencies") +
-  labs(subtitle = "By Lumped Government-twide Accounting Agency [CGAC] - Top 15",
+  labs(subtitle = "By Lumped Government-wide Accounting Agency [CGAC] - Top 15",
        x = "") +
   theme_ipsum()
 ```
@@ -2151,13 +2151,19 @@ sun
 Finally let me show you how we can port this data into an interactive pivottable!
 
 ```{r}
-rpiv <- rpivotTable::rpivotTable(df_budget,
-                                 rows = "name_agency_cgac",
-                                 vals = "amount_item",
-                                 aggregatorName = "Sum")
+rpiv <- rpivotTable::rpivotTable(
+  df_budget,
+  rows = "name_agency_cgac",
+  vals = "amount_item",
+  aggregatorName = "Sum",
+  width = "100%",
+  height = "100%"
+)
 ```
 
-```{r}
+This wont render on markdown
+
+```{r eval = F}
 rpiv
 ```
 

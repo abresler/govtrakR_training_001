@@ -295,19 +295,17 @@ gt(tbl_coef)
 
 tbl_depts <-
   tbl_pyro %>%
-  count(
-    name_department_award,
-    wt = amount_obligation,
-    name = "amount",
-    sort = T
-  ) %>%
+  count(name_department_award,
+        wt = amount_obligation,
+        name = "amount",
+        sort = T) %>%
   mutate(name_department_award = fct_reorder(name_department_award, amount))
 
 tbl_depts %>% munge_data() %>% gt()
 
 gg_spend <-
   tbl_depts %>%
-  mutate(amount_millions = amount /1000000) %>%
+  mutate(amount_millions = amount / 1000000) %>%
   ggplot(aes(x = name_department_award, y = amount_millions)) +
   geom_segment(
     aes(
@@ -530,9 +528,7 @@ tbl_umap <-
 
 tbl_pyro_office <-
   tbl_pyro_office %>%
-  bind_cols(
-    tbl_umap
-  )
+  bind_cols(tbl_umap)
 
 x <-
   c(
@@ -937,7 +933,7 @@ gg_agency <-
     check_overlap = T
   ) +
   ggtitle("Top SBIR/STTR Phase III Awarding Agencies") +
-  labs(subtitle = "By Lumped Government-twide Accounting Agency [CGAC] - Top 15",
+  labs(subtitle = "By Lumped Government-wide Accounting Agency [CGAC] - Top 15",
        x = "") +
   theme_ipsum()
 
@@ -1340,7 +1336,10 @@ tbl_af_keywords <-
   mutate_all(str_squish) %>%
   count(keyword_company_clean_afwerx, sort = T)
 
-af_keywords <- reactable(tbl_af_keywords, filterable = T, searchable = T)
+af_keywords <-
+  reactable(tbl_af_keywords,
+            filterable = T,
+            searchable = T)
 
 af_keywords
 
@@ -1385,7 +1384,12 @@ tbl_lo <-
   tidylo::bind_log_odds(set = type_solicitation, feature = keyword_company_clean_afwerx, n = n) %>%
   arrange(desc(log_odds_weighted))
 
-reactable(tbl_lo, filterable = T, sortable = T, searchable = T)
+reactable(
+  tbl_lo,
+  filterable = T,
+  sortable = T,
+  searchable = T
+)
 
 
 ### Which Words Are counted together
@@ -1467,17 +1471,17 @@ gg_items
 
 hc_items <-
   hchart(
-  tbl_items,
-  "scatter",
-  hcaes(
-    x = count_item,
-    y = amount_unit_cost,
-    group = name_agency_cgac,
-    name = name_program_element_actual
-  ),
-  marker = list(radius = 3, symbol = 'circle'),
-  regression = TRUE
-) %>%
+    tbl_items,
+    "scatter",
+    hcaes(
+      x = count_item,
+      y = amount_unit_cost,
+      group = name_agency_cgac,
+      name = name_program_element_actual
+    ),
+    marker = list(radius = 3, symbol = 'circle'),
+    regression = TRUE
+  ) %>%
   hc_title(text = "2021 Defense Budget Requested Items") %>%
   hc_xAxis(title = list(text = "Item Count (log10 transformed)"),
            type = "logarithmic") %>%
@@ -1532,8 +1536,8 @@ tbl_treemap <- df_budget %>%
 tm <-
   tbl_treemap %>%
   treemap(index = treemap_columns,
-          vSize = "amount",
-          #vColor="continent",
+          vSize = "amount",,
+          draw = F,
           type = "index")
 
 tm_nest <- d3_nest(tm$tm[, c(treemap_columns,
@@ -1552,14 +1556,14 @@ sun <- sund2b(
 
 sun
 
-
-
 ### Rpivot
 
-rpiv <- rpivotTable::rpivotTable(df_budget,
-                                 rows = "name_agency_cgac",
-                                 vals = "amount_item",
-                                 aggregatorName = "Sum")
-
-
+rpiv <-  rpivotTable::rpivotTable(
+  df_budget,
+  rows = "name_agency_cgac",
+  vals = "amount_item",
+  aggregatorName = "Sum",
+  width = "100%",
+  height = "100%"
+)
 rpiv
