@@ -751,7 +751,13 @@ tbl_pyro_office <-
 
 
 ```{r}
-reactable(tbl_pyro_office)
+reactable(tbl_pyro_office, filterable = F,
+    resizable = T,
+    searchable = T,
+    showPageSizeOptions = T,
+    pageSizeOptions = c(5, 10, 20),
+    sortable = T,
+    )
 ```
 
 ```{r}

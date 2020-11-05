@@ -513,6 +513,16 @@ tbl_pyro_office <-
   ) %>%
   arrange(desc(amount_contracts))
 
+tbl_pyro_office %>%
+  reactable::reactable(
+    filterable = F,
+    resizable = T,
+    searchable = T,
+    showPageSizeOptions = T,
+    pageSizeOptions = c(5, 10, 20),
+    sortable = T
+  )
+
 
 tbl_pyro_office <-
   tbl_pyro_office %>%
@@ -1535,10 +1545,13 @@ tbl_treemap <- df_budget %>%
 
 tm <-
   tbl_treemap %>%
-  treemap(index = treemap_columns,
-          vSize = "amount",,
-          draw = F,
-          type = "index")
+  treemap(
+    index = treemap_columns,
+    vSize = "amount",
+    ,
+    draw = F,
+    type = "index"
+  )
 
 tm_nest <- d3_nest(tm$tm[, c(treemap_columns,
                              "vSize",
