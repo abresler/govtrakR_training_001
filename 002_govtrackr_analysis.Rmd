@@ -64,7 +64,6 @@ Lets explore PSC's to help us better understand the products and services the go
 
 ```{r pull_psc}
 tbl_psc <- dictionary_psc_active(only_active = T, snake_names = T)
-
 ```
 
 #### Building Table to Explore PSCs
@@ -217,7 +216,6 @@ args(fpds_csv)
 ```{r fpds_pyro}
 tbl_pyro <-
   fpds_csv(product_or_service_code = "1370", snake_names = T)
-
 ```
 
 #### Explore the Data Structure and Values
@@ -231,7 +229,6 @@ glimpse(tbl_pyro)
 ```{r}
 skim(tbl_pyro)
 ```
-
 
 #### What is the Total Spend?
 
@@ -361,8 +358,6 @@ tbl_monthly_pyro <-
 ```
 
 Lets turn this into an interactive heatmap.
-
-
 
 ```{r}
 
@@ -527,7 +522,8 @@ tbl_agency_sum <-
 Now we can explore the range using a boxplot and even layer in the volume with a scatter plot!
 
 ```{r}
-gg_contract <- tbl_agency_sum %>%
+gg_contract <- 
+  tbl_agency_sum %>%
   ggplot(aes(
     x = factor(name_agency_cgac_award),
     y = amount,
@@ -555,7 +551,6 @@ gg_contract <- tbl_agency_sum %>%
 ```{r}
 gg_contract
 ```
-
 
 #### How Do We Procure Pyrotechnics
 
@@ -727,7 +722,8 @@ tbl_vendors %>%
 First we need to build an input table with the data on the dimensions to be reduced
 
 ```{r}
-tbl_pyro_office <- tbl_pyro %>%
+tbl_pyro_office <- 
+  tbl_pyro %>%
   group_by(name_office_award) %>%
   summarise(
     department = name_department_award[which.max(amount_obligation)],
@@ -903,7 +899,8 @@ tbl_anduril <-
 #### Anduril Awards by Agency and Year
 
 ```{r}
-gt_dept <- tbl_anduril %>%
+gt_dept <- 
+  tbl_anduril %>%
   count(name_agency_cgac_award,
         year_budget,
         wt = amount_obligation,
@@ -973,7 +970,6 @@ gg_bigraph
 
 Next lets take a look at which 3 words show up together and how many contracts this and obligations they correspond to.
 
-
 First we build the ngram table
 
 ```{r}
@@ -1009,7 +1005,7 @@ tbl_ngrams %>%
 
 ### Part IV: Analyzing Phase III SBIR/STTRs
 
-This next section shows you how to take advantage of a special `fpds_csv` wrapper that acquires SBIR/STTR procurements.
+This next section shows you how to take advantage of a special `fpds_csv` wrapper that acquires SBIR/STTR procurement.
 
 #### Acquire All Phase III SBIR Procurements
 
@@ -1431,7 +1427,8 @@ table_office
 First thing is to build a table that shows us first time vendors.  We have to exclude 1 special DUNS number, inquisitive minds should feel free to explore it on their own time.
 
 ```{r}
-tbl_first <- df_all %>%
+tbl_first <-
+  df_all %>%
   filter(id_duns != 123456787) %>%
   group_by(id_duns) %>%
   filter(date_obligation == min(date_obligation)) %>%
@@ -1455,7 +1452,8 @@ This gives us information on 2,450 Phase III awardees.
 Now lets look at the raw counts over time between fisca year 1998 and 2020.
 
 ```{r}
-gg_first_time <- tbl_first %>%
+gg_first_time <- 
+  tbl_first %>%
   count(year_budget_first) %>%
   filter(year_budget_first >= 1998, year_budget_first <= 2020) %>%
   ggplot(aes(year_budget_first, n)) +
@@ -1483,7 +1481,8 @@ colors <-
     "#FA7D00FF",
     "#78005AFF")
 
-hc_attribution <- tbl_first %>%
+hc_attribution <- 
+  tbl_first %>%
   count(year_budget_first, agency_first) %>%
   filter(year_budget_first >= 1998, year_budget_first <= 2020) %>%
   mutate(agency_lumped = fct_lump(agency_first, n = 5, other_level = "ALL OTHER AGENCIES")) %>%
@@ -1544,7 +1543,6 @@ Now lets dig into the Phase III awardees and build an interactive trelliscope to
 First step is to build a vendor summary data frame
 
 ```{r}
-
 tbl_vendors <-
   df_all %>%
   filter(!is.na(id_duns)) %>%
@@ -1594,6 +1592,7 @@ Lets explore the data interactively [this will not work in the rendered markdown
 ```{r eval = F}
 esquisse::esquisser(tbl_vendors)
 ```
+
 Lets filter out some of the the small awardees by ensuring the companies have at-least 2 contracts and over $500,000 in awards
 
 ```{r}
@@ -1623,7 +1622,8 @@ mplot3.xy(
 Next we can add the cluster to our summary data.
 
 ```{r}
-clusters <- tbl_vendors %>% select(-id_duns) %>%
+clusters <- 
+  tbl_vendors %>% select(-id_duns) %>%
   select_if(is.numeric) %>%
   rtemis::u.PAM(k = 10)
 
@@ -1937,7 +1937,8 @@ tbl_company_keywords %>%
 Now lets look at highly correlated companies using pairwise correlations conditioning keyword againt company.
 
 ```{r}
-hc_cor_key <- tbl_company_keywords %>%
+hc_cor_key <- 
+  tbl_company_keywords %>%
   count(name_company_clean, keyword_company_clean_afwerx) %>%
   pairwise_cor(item = name_company_clean, feature = keyword_company_clean_afwerx) %>%
   filter(correlation > .70) %>%
@@ -2005,7 +2006,6 @@ df_budget %>%
   gt()
 
 ```
-
 
 #### Which Items Are We Buying
 
@@ -2094,7 +2094,7 @@ hc_items
 
 Lets see if we can explore the whole budget interactively.
 
-To do that we will build a hierarcical sunburst visualization.
+To do that we will build a hierarchical sunburst visualization.
 
 First lets get the data we need.
 
@@ -2126,10 +2126,12 @@ Now we can build the interactive sunburst chart.
 ```{r eval = T}
 tm <-
   tbl_treemap %>%
-  treemap(index = treemap_columns,
-          vSize = "amount",
-          draw = F,
-          type = "index")
+  treemap(
+    index = treemap_columns,
+    vSize = "amount",
+    draw = F,
+    type = "index"
+  )
 
 tm_nest <- d3_nest(tm$tm[, c(treemap_columns,
                              "vSize",
@@ -2174,3 +2176,80 @@ rpiv
 ```
 
 #### Questions and Follow Up
+
+
+### Looking at Transition for Anduril
+
+This code block show cases how one can determine possible transitions using Anduril as an example
+
+
+```{r}
+tbl_anduril <-
+  fpds_atom(
+    vendor_name = "ANDURIL",
+    parse_contracts = T,
+    snake_names = T
+  )
+
+tbl_anduril <- tbl_anduril %>%
+  filter(id_duns != 103307059)
+
+tbl_phase_2_date <-
+  tbl_anduril %>%
+  filter(!is.na(code_research)) %>%
+  filter(code_research == "SR2") %>%
+  group_by(code_research) %>%
+  filter(date_obligation == min(date_obligation)) %>%
+  select(
+    id_duns,
+    id_contract_phase_2 = id_contract_analysis,
+    date_phase_2 = date_obligation,
+    ageny_phase_2 = name_agency_cgac_award,
+    office_award_phase_2 = name_office_award,
+    office_fundinging_phase_2 = name_office_funding,
+  ) %>%
+  ungroup()
+
+tbl_anduril <-
+  tbl_anduril %>%
+  left_join(tbl_phase_2_date, by = "id_duns")
+
+
+tbl_anduril_post_phase_2 <-
+  tbl_anduril %>%
+  mutate(id_contract_analysis = id_contract_analysis %>% substr(1, 13)) %>%
+  filter(id_contract_analysis != "FA865020C9300") %>%
+  group_by(
+    id_duns,
+    name_vendor,
+    id_contract_analysis,
+    type_action,
+    date_phase_2,
+    type_research,
+    type_inherently_government_function
+  ) %>%
+  summarise(
+    date_award = min(date_obligation, na.rm = T),
+    contract_actions = n(),
+    department_award =  name_department_award[which.max(amount_obligation)],
+    agency_award =  name_agency_award[which.max(amount_obligation)],
+    office_award = name_office_award[which.max(amount_obligation)],
+    amount_obligated = sum(amount_obligation, na.rm = T),
+    .groups = "drop"
+  ) %>%
+  mutate(is_after_phase_2 = date_award > date_phase_2) %>%
+  filter(is_after_phase_2) %>%
+  ungroup() %>%
+  select(-date_phase_2) %>%
+  arrange(date_award) %>%
+  mutate(contract_number_post_phase_2 = 1:n())
+```
+
+
+Here are the results
+
+```{r}
+tbl_anduril_post_phase_2 %>%
+  munge_data() %>%
+  gt::gt()
+```
